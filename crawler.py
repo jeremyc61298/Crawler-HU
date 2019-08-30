@@ -10,6 +10,7 @@ NUMPAGESFLAG = 'n'
 RECURSIVEFLAG = 'r'
 WAITFLAG = 'w'
 HELPFLAG = 'h'
+ERRORMSG = 'e'
 
 
 def checkForValidScheme(url):
@@ -20,44 +21,78 @@ def checkForValidScheme(url):
         return True
     return False
 
+def checkForTrailingNumericParameter(args, flag, index):
+    result = ()
 
-def consumeFlag(flag, index=None):
-    if flag == NUMPAGESFLAG:
-        # TODO: Num pages workflow
-        print('num pages workflow')
-    elif flag == RECURSIVEFLAG:
-        # TODO: Recursive workflow
-        print('recursive workflow')
-    elif flag == WAITFLAG:
-        # TODO: Wait workflow
-        print('wait workflow')
-    elif flag == HELPFLAG:
-        # TODO: Display help dialog
-        print('help workflow')
+    if len(args) >= index + 1:
+        num = args[index + 1]
+        if num.isnumeric():
+            result = (flag, int(num))
+        else:
+            print('Use a numeric value for the "-{}" argument.'.format(flag))
     else:
-        return 'Crawler: Unsupported flag {flag}. Use "-{help}" for more information'.format(
-            flag, HELPFLAG)
+        print('Missing parameter for "-{flag}" argument. Use "-{help}" for information.'.format(flag=flag, help=HELPFLAG))
+
+    return result
 
 
-def extractArgs(argv):
-    errMsg = ''
-    option = None
+def printHelpDialog():
+    print('Help Dialog')
+
+# Tuple 'result' will contain the flag that was
+# extracted and the value that goes with it
+def extractFlag(args, flag, index):
+    result = ()
+
+    if flag == NUMPAGESFLAG:
+        result = checkForTrailingNumericParameter(args, NUMPAGESFLAG, index)
+    elif flag == RECURSIVEFLAG:
+        result = (RECURSIVEFLAG, True)
+    elif flag == WAITFLAG:
+        result = checkForTrailingNumericParameter(args, WAITFLAG, index)
+    elif flag == HELPFLAG:
+        result = (HELPFLAG, True)
+    else:
+        print('Crawler: Unsupported flag {flag}. Use "-{help}" for more information'.format(
+            flag, HELPFLAG))
+
+    return result
+
+# Returns a tuple of (success, flags, urls)
+# success:  Bool determining whether the needed arguments 
+#           were extracted correctly and program execution 
+#           can continue.
+# flags:    Dictionary of extracted flags and their associated
+#           values
+# urls:     List of urls to crawl   
+def extractArgs(args):
+    success = True
     urls = []
+    flags = {}
 
     # Learned to use enumerate from here:
     # https://treyhunner.com/2016/04/how-to-loop-with-indexes-in-python/
-    for i, arg in enumerate(argv):
+    for i, arg in enumerate(args):
         if arg[0] == '-' and len(arg) > 1:
-            errMsg = consumeFlag(arg[1], i)
+            flag = extractFlag(args, arg[1], i)
+            if len(flag) == 2:
+                flags[flag[0]] = flag[1]
+        elif arg.isnumeric():
+            # Skip this case, as the number has already been extracted
+            continue 
         elif checkForValidScheme(arg):
             urls.append(arg)
         else:
-            errMsg = 'Crawler: Only http or https URLs can be requested'
+            print('Crawler: Only http or https URLs can be requested')
+            success = False
+            break
 
-    if len(urls) == 0:
-        errMsg = 'Crawler: Supply a URL to retrieve'
 
-    return (errMsg, option, urls)
+    if len(urls) == 0 and HELPFLAG not in flags:
+        print('Crawler: Supply a URL to retrieve')
+        success = False
+
+    return (success, flags, urls)
 
 
 def makeRequests(urls):
@@ -69,3 +104,13 @@ def makeRequests(urls):
         except:
             print('-- Could not access')
     return responses
+
+def main():
+    (success, flags, urls) = extractArgs(sys.argv[1:])
+    if HELPFLAG in flags: 
+        printHelpDialog()
+    
+    makeRequests(urls)
+
+
+main()
