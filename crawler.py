@@ -3,15 +3,20 @@
 # A simple web crawler which will crawl pages
 # with the same hostname.
 import sys
-import urllib.request
+import os
+import time
+import hashlib
+from urllib.request import urlopen, Request
+from bs4 import BeautifulSoup
 
 MAXSCHEMELENGTH = 8
-NUMPAGESFLAG = 'n'
+DEFAULTSLEEPTIME = 2
+PAGELIMITFLAG = 'n'
 RECURSIVEFLAG = 'r'
 WAITFLAG = 'w'
 HELPFLAG = 'h'
 ERRORMSG = 'e'
-
+HTMLTYPE = 'text/html'
 
 def checkForValidScheme(url):
     scheme = ''
@@ -44,8 +49,8 @@ def printHelpDialog():
 def extractFlag(args, flag, index):
     result = ()
 
-    if flag == NUMPAGESFLAG:
-        result = checkForTrailingNumericParameter(args, NUMPAGESFLAG, index)
+    if flag == PAGELIMITFLAG:
+        result = checkForTrailingNumericParameter(args, PAGELIMITFLAG, index)
     elif flag == RECURSIVEFLAG:
         result = (RECURSIVEFLAG, True)
     elif flag == WAITFLAG:
@@ -80,13 +85,13 @@ def extractArgs(args):
         elif arg.isnumeric():
             # Skip this case, as the number has already been extracted
             continue 
-        elif checkForValidScheme(arg):
-            urls.append(arg)
         else:
-            print('Crawler: Only http or https URLs can be requested')
-            success = False
-            break
-
+            urls.append(arg)
+            if not checkForValidScheme(arg):
+                print('Crawler: Only http or https URLs can be requested')
+                success = False
+                break
+            
 
     if len(urls) == 0 and HELPFLAG not in flags:
         print('Crawler: Supply a URL to retrieve')
@@ -94,23 +99,114 @@ def extractArgs(args):
 
     return (success, flags, urls)
 
+# Resources used:
+# https://stackoverflow.com/a/29546832
+def makeRequest(url):
+    try:
+        print('Crawling: ' + url)
+        return urlopen(Request(url, headers={'User-Agent': 'WebSciCrawler'}))
+    except:
+        print('-- Could not access')
+        return None
 
-def makeRequests(urls):
-    responses = []
-    for url in urls:
-        try:
-            print('Crawling: ' + url)
-            responses.append(urllib.request.urlopen(url))
-        except:
-            print('-- Could not access')
-    return responses
+# Resources used: 
+# https://stackabuse.com/creating-and-deleting-directories-with-python/
+# https://tecadmin.net/python-check-file-directory-exists/
+def makeDirectoryIfNotExists(dirname):
+    if len(dirname) == 0:
+         return False
+
+    # Build new directory string. If there is not a leading
+    # on 'dirname', add one. 
+    newdir = os.getcwd() + ('\\' if (dirname[0] != '\\') else '') + dirname
+
+    if not os.path.exists(newdir):
+        os.mkdir(newdir)
+        return True
+    return False
+
+def sleep(flags):
+    if WAITFLAG in flags:
+        time.sleep(flags[WAITFLAG])
+    else:
+        time.sleep(DEFAULTSLEEPTIME)
+
+# Resources used: 
+# https://docs.python.org/3/tutorial/inputoutput.html
+# https://stackoverflow.com/a/52706404  
+def savePageToFile(url, headers, body):
+    filename = 'pages/' + hashlib.md5(url.encode()).hexdigest() + '.html'
+    file = open(filename, 'w', encoding='utf-8')
+    file.write(url + '\n')
+    file.write(headers)
+    file.write(body)
+    file.close()
+    print('-- Saved to ' + filename)
+    return filename
+
+def crawl(initialUrls, flags):
+    frontier = initialUrls[:]
+    visited = set()
+    discovered = []        
+    numPagesCrawled = 0
+    recurse = RECURSIVEFLAG in flags
+
+    # There is only a limit if the recursive and page limit flags are set
+    limit = None
+    if (recurse and PAGELIMITFLAG in flags):
+        limit = flags[PAGELIMITFLAG]
+
+    for url in frontier:
+        if limit != None and numPagesCrawled == flags[PAGELIMITFLAG]:
+            print('Limit ' + str(limit) + ' reached')
+            return
+
+        visited.add(url)
+        response = makeRequest(url)
+  
+        if response != None:
+            headers = response.info()
+            mimeType = headers.get_content_type()
+            
+            if mimeType != HTMLTYPE:
+                print('-- Skipping ' + mimeType + 'content')
+            else:
+                fetchedUrl = response.geturl()
+                body = str(response.read(), encoding='utf8')
+
+                savePageToFile(fetchedUrl, str(headers), body)
+
+                if recurse: 
+                    discovered.clear()
+                    soup = BeautifulSoup(body, 'html.parser')
+                    links = []
+                    for link in soup('a'):
+                        links.append(link.get('href'))
+
+                    for link in links:
+                        if (link not in frontier) and (link not in discovered) and (link not in visited):
+                            discovered.append(link)
+                    
+                    # Append unique links that were found in the page into the frontier
+                    frontier += discovered
+        
+        numPagesCrawled += 1
+
+        # Skip sleeping if this is the last page to crawl
+        if numPagesCrawled != limit and numPagesCrawled != len(frontier): 
+            sleep(flags)
 
 def main():
     (success, flags, urls) = extractArgs(sys.argv[1:])
+
     if HELPFLAG in flags: 
         printHelpDialog()
     
-    makeRequests(urls)
+    if not success:
+        # Crawler should not be run
+        exit(-1)
 
-
+    makeDirectoryIfNotExists('pages')
+    crawl(urls, flags)
+    
 main()
