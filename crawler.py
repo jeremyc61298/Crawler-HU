@@ -17,6 +17,7 @@ WAITFLAG = 'w'
 HELPFLAG = 'h'
 ERRORMSG = 'e'
 HTMLTYPE = 'text/html'
+USERAGENT = 'WebSci Crawler'
 
 def checkForValidScheme(url):
     scheme = ''
@@ -104,7 +105,7 @@ def extractArgs(args):
 def makeRequest(url):
     try:
         print('Crawling: ' + url)
-        return urlopen(Request(url, headers={'User-Agent': 'WebSciCrawler'}))
+        return urlopen(Request(url, headers={'User-Agent': USERAGENT}))
     except:
         print('-- Could not access')
         return None
