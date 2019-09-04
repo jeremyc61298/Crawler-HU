@@ -43,11 +43,14 @@ def checkForTrailingNumericParameter(args, flag, index):
 
 
 def printHelpDialog():
-    spaces = 5
+    spaces = 10
     print('Crawler-HU\nAuthor: Jeremy Campbell')
-    print(f'Usage: python cralwer.py [-{PAGELIMITFLAG} num | -{RECURSIVEFLAG} | -{WAITFLAG} seconds | -{HELPFLAG}] [url]')
+    print(f'Usage: python crawler.py [option] ... [url]')
     print('Options:')
-    print(f'-{PAGELIMITFLAG} num', ': '.rjust(spaces, ' '), F'Crawl "num" number of pages, then terminate. Must be used in conjuction with -{RECURSIVEFLAG}')
+    print(f'-{PAGELIMITFLAG} num'.ljust(spaces), f': Crawl "num" number of pages, then terminate. Must be used in conjuction with -{RECURSIVEFLAG}.')
+    print(f'-{RECURSIVEFLAG}'.ljust(spaces), f': Turn on recursive retrieving, which follows links in discovered web pages.')
+    print(f'-{WAITFLAG} seconds'.ljust(spaces), f': Wait for the given number of seconds before requesting the next URL. The default amount is {DEFAULTSLEEPTIME} seconds.')
+    print(f'-{HELPFLAG}'.ljust(spaces), ': Displays this help message.')
 
 # Tuple 'result' will contain the flag that was
 # extracted and the value that goes with it
@@ -162,6 +165,7 @@ def crawl(initialUrls, flags):
         limit = flags[PAGELIMITFLAG]
 
     for url in frontier:
+        # Check if the limit has been reached
         if limit != None and numPagesCrawled == flags[PAGELIMITFLAG]:
             print('Limit ' + str(limit) + ' reached')
             return
