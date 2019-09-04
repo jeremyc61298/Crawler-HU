@@ -43,7 +43,9 @@ def checkForTrailingNumericParameter(args, flag, index):
 
 
 def printHelpDialog():
-    print('Help Dialog')
+    print('Crawler-HU\nAuthor: Jeremy Campbell')
+    print('Usage: python cralwer.py [-n num | -r | -w seconds | -h] [url]')
+    print('Options:')
 
 # Tuple 'result' will contain the flag that was
 # extracted and the value that goes with it
