@@ -43,9 +43,11 @@ def checkForTrailingNumericParameter(args, flag, index):
 
 
 def printHelpDialog():
+    spaces = 5
     print('Crawler-HU\nAuthor: Jeremy Campbell')
-    print('Usage: python cralwer.py [-n num | -r | -w seconds | -h] [url]')
+    print(f'Usage: python cralwer.py [-{PAGELIMITFLAG} num | -{RECURSIVEFLAG} | -{WAITFLAG} seconds | -{HELPFLAG}] [url]')
     print('Options:')
+    print(f'-{PAGELIMITFLAG} num', ': '.rjust(spaces, ' '), F'Crawl "num" number of pages, then terminate. Must be used in conjuction with -{RECURSIVEFLAG}')
 
 # Tuple 'result' will contain the flag that was
 # extracted and the value that goes with it
