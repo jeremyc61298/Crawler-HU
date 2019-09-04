@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import hashlib
+from urllib.parse import urlparse
 from urllib.request import urlopen, Request
 from bs4 import BeautifulSoup
 
@@ -19,11 +20,11 @@ ERRORMSG = 'e'
 HTMLTYPE = 'text/html'
 USERAGENT = 'WebSci Crawler'
 
+# Resources used: 
+# https://stackoverflow.com/a/9626596 - urlparse
 def checkForValidScheme(url):
-    scheme = ''
-    if len(url) >= MAXSCHEMELENGTH:
-        scheme = url[0:MAXSCHEMELENGTH]
-    if 'https://' in scheme or 'http://' in scheme:
+    parsedUrl = urlparse(url)
+    if parsedUrl.scheme == 'https' or parsedUrl.scheme == 'http':
         return True
     return False
 
