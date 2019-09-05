@@ -6,7 +6,7 @@ import sys
 import os
 import time
 import hashlib
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from urllib.request import urlopen, Request
 from bs4 import BeautifulSoup
 
@@ -31,17 +31,12 @@ def checkForValidScheme(url):
 def checkForTrailingNumericParameter(args, flag, index):
     result = ()
 
-    if len(args) >= index + 1:
-        num = args[index + 1]
-        if num.isnumeric():
-            result = (flag, int(num))
-        else:
-            print('Use a numeric value for the "-{}" argument.'.format(flag))
+    if len(args) >= index + 1 and args[index + 1].isnumeric():
+        result = (flag, int(args[index + 1]))
     else:
-        print('Missing parameter for "-{flag}" argument. Use "-{help}" for information.'.format(flag=flag, help=HELPFLAG))
+        print(f'Missing parameter for "-{flag}" argument. Use "-{HELPFLAG}" for information.')
 
     return result
-
 
 def printHelpDialog():
     spaces = 10
@@ -67,8 +62,7 @@ def extractFlag(args, flag, index):
     elif flag == HELPFLAG:
         result = (HELPFLAG, True)
     else:
-        print('Crawler: Unsupported flag {flag}. Use "-{help}" for more information'.format(
-            flag, HELPFLAG))
+        print(f'Crawler: Unsupported flag -{flag}. Use "-{HELPFLAG}" for more information')
 
     return result
 
@@ -153,8 +147,26 @@ def savePageToFile(url, headers, body):
     print('-- Saved to ' + filename)
     return filename
 
-def crawl(initialUrls, flags):
-    frontier = initialUrls[:]
+# Resources used: 
+# https://stackoverflow.com/a/9626596 - urlparse
+def buildValidLink(initialUrl, urlToCrawl):
+    parsedUrlToCrawl = urlparse(urlToCrawl)
+    parsedInitialUrl = urlparse(initialUrl)
+
+    if urlToCrawl == None:
+        return None
+
+    # If the urlToCrawl is a relative url, use urljoin
+    if parsedUrlToCrawl.hostname == None:
+        return urljoin(initialUrl, urlToCrawl)
+        
+    elif parsedUrlToCrawl.hostname == parsedInitialUrl.hostname:
+        return urlToCrawl
+    
+    return None
+
+def crawl(initialUrl, flags):
+    frontier = [initialUrl]
     visited = set()
     discovered = []        
     numPagesCrawled = 0
@@ -171,6 +183,7 @@ def crawl(initialUrls, flags):
             print('Limit ' + str(limit) + ' reached')
             return
 
+        skipped = False
         visited.add(url)
         response = makeRequest(url)
   
@@ -179,7 +192,9 @@ def crawl(initialUrls, flags):
             mimeType = headers.get_content_type()
             
             if mimeType != HTMLTYPE:
+                # Don't add this page to the total number of pages crawled
                 print('-- Skipping ' + mimeType + 'content')
+                skipped = True
             else:
                 fetchedUrl = response.geturl()
                 body = str(response.read(), encoding='utf8')
@@ -194,13 +209,15 @@ def crawl(initialUrls, flags):
                         links.append(link.get('href'))
 
                     for link in links:
-                        if (link not in frontier) and (link not in discovered) and (link not in visited):
-                            discovered.append(link)
+                        vlink = buildValidLink(fetchedUrl, link)
+                        if (vlink != None) and (vlink not in frontier) and (vlink not in discovered) and (vlink not in visited):
+                            discovered.append(vlink)
                     
                     # Append unique links that were found in the page into the frontier
                     frontier += discovered
         
-        numPagesCrawled += 1
+        if not skipped: 
+            numPagesCrawled += 1
 
         # Skip sleeping if this is the last page to crawl
         if numPagesCrawled != limit and numPagesCrawled != len(frontier): 
@@ -217,6 +234,8 @@ def main():
         exit(-1)
 
     makeDirectoryIfNotExists('pages')
-    crawl(urls, flags)
+
+    for url in urls:
+        crawl(url, flags)
     
 main()
