@@ -38,6 +38,17 @@ def checkForTrailingNumericParameter(args, flag, index):
 
     return result
 
+def removeScheme(url):
+    parsedUrl = urlparse(url)
+    
+    if parsedUrl.scheme == 'http':
+        return url[7:]
+    elif parsedUrl.scheme == 'https':
+        return url[8:]
+    else:
+        # Ignore urls without http or https
+        return url
+
 def printHelpDialog():
     spaces = 10
     print('Crawler-HU\nAuthor: Jeremy Campbell')
@@ -149,7 +160,7 @@ def savePageToFile(url, headers, body):
 
 # Resources used: 
 # https://stackoverflow.com/a/9626596 - urlparse
-def buildValidLink(initialUrl, urlToCrawl):
+def buildAbsoluteUrl(initialUrl, urlToCrawl):
     parsedUrlToCrawl = urlparse(urlToCrawl)
     parsedInitialUrl = urlparse(initialUrl)
 
@@ -165,10 +176,16 @@ def buildValidLink(initialUrl, urlToCrawl):
     
     return None
 
+# Trailing WS stands for Without Scheme. These collections exist
+# because some sites may have links absolute URLs to themselves
+# but using a different scheme, so we want to ignore the scheme 
+# when testing for URL uniqueness.
 def crawl(initialUrl, flags):
     frontier = [initialUrl]
+    frontierWS = [removeScheme(initialUrl)]
     visited = set()
-    discovered = []        
+    discovered = []
+    discoveredWS = []        
     numPagesCrawled = 0
     recurse = RECURSIVEFLAG in flags
 
@@ -184,7 +201,7 @@ def crawl(initialUrl, flags):
             return
 
         skipped = False
-        visited.add(url)
+        visited.add(removeScheme(url))
         response = makeRequest(url)
   
         if response != None:
@@ -202,19 +219,26 @@ def crawl(initialUrl, flags):
                 savePageToFile(fetchedUrl, str(headers), body)
 
                 if recurse: 
+                    # Remove all linkns found in the previous page from discovered
                     discovered.clear()
+                    discoveredWS.clear()
+
                     soup = BeautifulSoup(body, 'html.parser')
                     links = []
                     for link in soup('a'):
                         links.append(link.get('href'))
 
                     for link in links:
-                        vlink = buildValidLink(fetchedUrl, link)
-                        if (vlink != None) and (vlink not in frontier) and (vlink not in discovered) and (vlink not in visited):
-                            discovered.append(vlink)
+                        absUrl = buildAbsoluteUrl(fetchedUrl, link)
+                        schemelessUrl = removeScheme(absUrl)
+
+                        if (schemelessUrl != None) and (schemelessUrl not in frontierWS) and (schemelessUrl not in discoveredWS) and (schemelessUrl not in visited):
+                            discovered.append(absUrl)
+                            discoveredWS.append(schemelessUrl)
                     
                     # Append unique links that were found in the page into the frontier
                     frontier += discovered
+                    frontierWS += discoveredWS
         
         if not skipped: 
             numPagesCrawled += 1
