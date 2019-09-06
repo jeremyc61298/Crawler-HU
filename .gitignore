@@ -1,2 +1,5 @@
 # Ignore crawled webpages 
 pages/
+
+# Ignore vscode stuff
+.vscode/
